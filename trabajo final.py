@@ -685,7 +685,7 @@ def menu():
 
                 #
         elif opcion == "6":
-            ruta_no_cursadas = r"C:\Users\Dell\OneDrive\Escritorio\proyecto pensum\Python\sin_cursar.txt" #asignaturas sin cursar
+            ruta_no_cursadas = r"sin_cursar.txt" #asignaturas sin cursar
             #ruta_no_cursadas = r"C:\Users\Dell\OneDrive\Escritorio\Python\pensum.txt" #pensum completo
 
             mostrar_no_cursadas_con_grafico(ruta_no_cursadas)
@@ -698,6 +698,6 @@ def menu():
             print("Opción inválida.")
 
 # Cargar el archivo y ejecutar el menú
-ruta_archivo = r"C:\Users\Dell\OneDrive\Escritorio\proyecto pensum\Python\pensum.txt"  
+ruta_archivo = r"pensum.txt"  
 leer_archivo(ruta_archivo)
 menu()
