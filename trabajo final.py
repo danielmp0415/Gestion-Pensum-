@@ -1,7 +1,7 @@
 import os
-import matplotlib.pyplot as plt
-import networkx as nx
+import graphviz
 from collections import defaultdict, deque
+import webbrowser
 
 class Nodo:
     def __init__(self, valor):
@@ -57,7 +57,7 @@ def leer_archivo(archivo):
                 # Agregar nodos y aristas al grafo
                 for pr in prerrequisitos_materia:
                     pr = pr.strip()
-                    if pr:  # Solo si no está vacío
+                    if pr:
                         grafo_materias.agregar_arista(pr, codigo_materia)
 
     except FileNotFoundError:
@@ -65,11 +65,9 @@ def leer_archivo(archivo):
     except Exception as e:
         print(f"Ocurrió un error al leer el archivo: {e}")
 
-# Función para limpiar la consola
 def limpiar_consola():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-# Función para mostrar el pensum completo
 def mostrar_pensum():
     if materias:
         print("\nPensum completo:")
@@ -78,7 +76,6 @@ def mostrar_pensum():
     else:
         print("El pensum no ha sido cargado correctamente.")
 
-# Función para mostrar los prerrequisitos de una materia
 def mostrar_prerrequisitos(materia):
     nodo = grafo_materias.obtener_nodo(materia)
     if nodo:
@@ -91,117 +88,25 @@ def mostrar_prerrequisitos(materia):
     else:
         print("Materia no encontrada.")
 
-
-def graficar_prerrequisitos(materia):
+def obtener_prerrequisitos_indirectos(materia):
     nodo = grafo_materias.obtener_nodo(materia)
     if not nodo:
-        print("Materia no encontrada.")
-        return
-    
-    # Obtener todos los prerrequisitos indirectos
-    prerrequisitos = obtener_prerrequisitos_indirectos(materia)
-    
-    if not prerrequisitos:
-        print(f"La materia {materia} no tiene prerrequisitos para graficar.")
-        return
-    
-    G = nx.DiGraph()
-    visitados = set()
+        return set()
 
-    def agregar_conexiones_reales(nodo_actual):
-        """Agrega solo las conexiones directas reales del grafo"""
-        if nodo_actual.valor in visitados:
-            return
-        visitados.add(nodo_actual.valor)
-        
-        # Agregar conexiones directas (padres -> nodo_actual)
+    prerrequisitos = set()
+
+    def explorar_prerrequisitos(nodo_actual):
         for padre in nodo_actual.padres:
-            G.add_edge(padre, nodo_actual.valor)
-            # Recursivamente agregar las conexiones de los padres
-            padre_nodo = grafo_materias.obtener_nodo(padre)
-            if padre_nodo:
-                agregar_conexiones_reales(padre_nodo)
+            if padre not in prerrequisitos:
+                prerrequisitos.add(padre)
+                padre_nodo = grafo_materias.obtener_nodo(padre)
+                if padre_nodo:
+                    explorar_prerrequisitos(padre_nodo)
 
-    # Construir el grafo con conexiones reales
-    agregar_conexiones_reales(nodo)
+    explorar_prerrequisitos(nodo)
+    return prerrequisitos
 
-    if not G.nodes:
-        print("No hay prerrequisitos para graficar.")
-        return
-
-    # Crear etiquetas más compactas
-    labels = {}
-    for codigo in G.nodes:
-            labels[codigo] = codigo
-
-    # Configurar la visualización
-    plt.figure(figsize=(12, 8))
-    pos = nx.spring_layout(G, k=2, iterations=50)
-    
-    # Dibujar el grafo
-    nx.draw(G, pos, labels=labels, with_labels=True, 
-            node_color='lightgreen', node_size=3000, 
-            font_size=8, arrows=True, arrowsize=20,
-            edge_color='gray', linewidths=2)
-    
-    plt.title(f"Prerrequisitos de {materia} - {materias.get(materia, '')}", fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-
-# Función CORREGIDA para graficar dependientes
-def graficar_dependientes(materia):
-    nodo = grafo_materias.obtener_nodo(materia)
-    if not nodo:
-        print("Materia no encontrada.")
-        return
-
-    G = nx.DiGraph()
-    visitados = set()
-
-    def agregar_conexiones_dependientes(nodo_actual):
-        """Agrega solo las conexiones directas reales del grafo para dependientes"""
-        if nodo_actual.valor in visitados:
-            return
-        visitados.add(nodo_actual.valor)
-        
-        # Agregar conexiones directas (nodo_actual -> hijos)
-        for hijo in nodo_actual.hijos:
-            G.add_edge(nodo_actual.valor, hijo)
-            # Recursivamente agregar las conexiones de los hijos
-            hijo_nodo = grafo_materias.obtener_nodo(hijo)
-            if hijo_nodo:
-                agregar_conexiones_dependientes(hijo_nodo)
-
-    # Construir el grafo con conexiones reales
-    agregar_conexiones_dependientes(nodo)
-
-    if not G.nodes:
-        print("Esta materia no tiene dependientes para graficar.")
-        return
-
-    # Crear etiquetas SOLO con códigos (SIN NOMBRES)
-    labels = {}
-    for codigo in G.nodes:
-        labels[codigo] = codigo
-
-    # Configurar la visualización
-    plt.figure(figsize=(12, 8))
-    pos = nx.spring_layout(G, k=2, iterations=50)
-    
-    # Dibujar el grafo
-    nx.draw(G, pos, labels=labels, with_labels=True, 
-            node_color='lightcoral', node_size=3000, 
-            font_size=10, arrows=True, arrowsize=20,
-            edge_color='gray', linewidths=2)
-    
-    plt.title(f"Dependientes de {materia} - {materias.get(materia, '')}", fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-# Función CORREGIDA para obtener todos los dependientes sin repetir
 def obtener_dependientes_indirectos(materia):
-    """Obtiene todos los dependientes directos e indirectos de una materia sin repetir"""
     nodo = grafo_materias.obtener_nodo(materia)
     if not nodo:
         return set()
@@ -219,10 +124,276 @@ def obtener_dependientes_indirectos(materia):
     explorar_dependientes(nodo)
     return dependientes
 
-def graficar_materias_no_cursadas(ruta_no_cursadas):
-    """Grafica las materias no cursadas con layout jerárquico correcto"""
+def generar_html_con_tooltips(svg_content, tooltips_map, output_file):
+    """Genera un archivo HTML con el SVG y tooltips interactivos"""
+    
+    html_template = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pensum Interactivo</title>
+    <style>
+        body {{
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }}
+        
+        .container {{
+            max-width: 95%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 30px;
+        }}
+        
+        h1 {{
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }}
+        
+        #svg-container {{
+            width: 100%;
+            overflow: auto;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: #fafafa;
+            padding: 20px;
+        }}
+        
+        svg {{
+            max-width: 100%;
+            height: auto;
+        }}
+        
+        .tooltip {{
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 300px;
+        }}
+        
+        .tooltip.show {{
+            display: block;
+        }}
+        
+        .tooltip strong {{
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+            color: #4CAF50;
+        }}
+        
+        .node {{
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        
+        .node:hover ellipse,
+        .node:hover polygon {{
+            fill: #FFD54F !important;
+            stroke: #F57C00 !important;
+            stroke-width: 3 !important;
+        }}
+        
+        .instructions {{
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }}
+        
+        .instructions p {{
+            margin: 5px 0;
+            color: #1565C0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Visualizador de Pensum Interactivo</h1>
+        
+        <div class="instructions">
+            <p><strong>💡 Instrucciones:</strong></p>
+            <p>• Pasa el cursor sobre cualquier materia para ver su nombre completo</p>
+            <p>• Las flechas muestran las dependencias entre materias</p>
+            <p>• Puedes hacer zoom con Ctrl+Scroll o el trackpad</p>
+        </div>
+        
+        <div id="svg-container">
+            {svg_content}
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        const tooltips = {tooltips_map};
+        const tooltip = document.getElementById('tooltip');
+        const nodes = document.querySelectorAll('.node');
+        
+        nodes.forEach(node => {{
+            const title = node.querySelector('title');
+            if (title) {{
+                const codigo = title.textContent.trim();
+                
+                node.addEventListener('mouseenter', (e) => {{
+                    if (tooltips[codigo]) {{
+                        tooltip.innerHTML = `<strong>${{codigo}}</strong>${{tooltips[codigo]}}`;
+                        tooltip.classList.add('show');
+                    }}
+                }});
+                
+                node.addEventListener('mousemove', (e) => {{
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
+                }});
+                
+                node.addEventListener('mouseleave', () => {{
+                    tooltip.classList.remove('show');
+                }});
+            }}
+        }});
+    </script>
+</body>
+</html>"""
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html_template)
+
+def graficar_prerrequisitos_graphviz(materia):
+    nodo = grafo_materias.obtener_nodo(materia)
+    if not nodo:
+        print("Materia no encontrada.")
+        return
+    
+    prerrequisitos = obtener_prerrequisitos_indirectos(materia)
+    
+    if not prerrequisitos:
+        print(f"La materia {materia} no tiene prerrequisitos para graficar.")
+        return
+    
+    # Crear grafo de Graphviz
+    dot = graphviz.Digraph(comment=f'Prerrequisitos de {materia}')
+    dot.attr(rankdir='TB')  # Top to Bottom
+    dot.attr('node', shape='box', style='filled,rounded', fillcolor='lightgreen', 
+             fontname='Arial', fontsize='10')
+    dot.attr('edge', color='#555555', penwidth='2', arrowsize='1')
+    dot.attr(splines='line')  # Líneas rectas
+    dot.attr(bgcolor='#f9f9f9')
+    
+    visitados = set()
+    tooltips = {}
+
+    def agregar_nodos_recursivo(nodo_actual):
+        if nodo_actual.valor in visitados:
+            return
+        visitados.add(nodo_actual.valor)
+        
+        # Agregar nodo con solo el código
+        dot.node(nodo_actual.valor, nodo_actual.valor)
+        tooltips[nodo_actual.valor] = materias.get(nodo_actual.valor, 'Sin nombre')
+        
+        # Agregar aristas
+        for padre in nodo_actual.padres:
+            dot.edge(padre, nodo_actual.valor)
+            padre_nodo = grafo_materias.obtener_nodo(padre)
+            if padre_nodo:
+                agregar_nodos_recursivo(padre_nodo)
+
+    agregar_nodos_recursivo(nodo)
+    
+    # Resaltar la materia objetivo
+    dot.node(materia, materia, fillcolor='#FFD54F', color='#F57C00', penwidth='3')
+    
+    # Generar SVG
+    output_name = f'prerrequisitos_{materia}'
+    dot.render(output_name, format='svg', cleanup=True)
+    
+    # Leer SVG y crear HTML con tooltips
+    with open(f'{output_name}.svg', 'r', encoding='utf-8') as f:
+        svg_content = f.read()
+    
+    html_file = f'{output_name}.html'
+    generar_html_con_tooltips(svg_content, str(tooltips), html_file)
+    
+    # Abrir en navegador
+    webbrowser.open(f'file://{os.path.abspath(html_file)}')
+    print(f"✅ Gráfico generado: {html_file}")
+
+def graficar_dependientes_graphviz(materia):
+    nodo = grafo_materias.obtener_nodo(materia)
+    if not nodo:
+        print("Materia no encontrada.")
+        return
+
+    dependientes = obtener_dependientes_indirectos(materia)
+    
+    if not dependientes:
+        print("Esta materia no tiene dependientes para graficar.")
+        return
+
+    # Crear grafo de Graphviz
+    dot = graphviz.Digraph(comment=f'Dependientes de {materia}')
+    dot.attr(rankdir='TB')
+    dot.attr('node', shape='box', style='filled,rounded', fillcolor='lightcoral',
+             fontname='Arial', fontsize='10')
+    dot.attr('edge', color='#555555', penwidth='2', arrowsize='1')
+    dot.attr(splines='line')  # Líneas rectas
+    dot.attr(bgcolor='#f9f9f9')
+    
+    visitados = set()
+    tooltips = {}
+
+    def agregar_nodos_recursivo(nodo_actual):
+        if nodo_actual.valor in visitados:
+            return
+        visitados.add(nodo_actual.valor)
+        
+        dot.node(nodo_actual.valor, nodo_actual.valor)
+        tooltips[nodo_actual.valor] = materias.get(nodo_actual.valor, 'Sin nombre')
+        
+        for hijo in nodo_actual.hijos:
+            dot.edge(nodo_actual.valor, hijo)
+            hijo_nodo = grafo_materias.obtener_nodo(hijo)
+            if hijo_nodo:
+                agregar_nodos_recursivo(hijo_nodo)
+
+    agregar_nodos_recursivo(nodo)
+    
+    # Resaltar la materia objetivo
+    dot.node(materia, materia, fillcolor='#FF6B6B', color='#C92A2A', penwidth='3')
+    
+    # Generar SVG y HTML
+    output_name = f'dependientes_{materia}'
+    dot.render(output_name, format='svg', cleanup=True)
+    
+    with open(f'{output_name}.svg', 'r', encoding='utf-8') as f:
+        svg_content = f.read()
+    
+    html_file = f'{output_name}.html'
+    generar_html_con_tooltips(svg_content, str(tooltips), html_file)
+    
+    webbrowser.open(f'file://{os.path.abspath(html_file)}')
+    print(f"✅ Gráfico generado: {html_file}")
+
+def graficar_materias_no_cursadas_graphviz(ruta_no_cursadas):
+    """Grafica las materias no cursadas con Graphviz"""
     try:
-        # Leer las materias no cursadas CON SUS PRERREQUISITOS
         materias_no_cursadas = {}
         with open(ruta_no_cursadas, 'r', encoding='utf-8') as f:
             for linea in f:
@@ -234,7 +405,6 @@ def graficar_materias_no_cursadas(ruta_no_cursadas):
                         nombre = partes[1].strip()
                         prereqs_str = partes[2].strip()
                         
-                        # Procesar prerrequisitos
                         prerrequisitos = []
                         if prereqs_str:
                             prerrequisitos = [p.strip() for p in prereqs_str.split(',') if p.strip()]
@@ -248,85 +418,52 @@ def graficar_materias_no_cursadas(ruta_no_cursadas):
             print("No hay materias no cursadas para graficar.")
             return
         
-        # Crear el grafo dirigido solo con materias no cursadas
-        G = nx.DiGraph()
+        # Crear grafo
+        dot = graphviz.Digraph(comment='Materias No Cursadas')
+        dot.attr(rankdir='TB')
+        dot.attr('node', shape='box', style='filled,rounded', fontname='Arial', fontsize='10')
+        dot.attr('edge', color='#555555', penwidth='2', arrowsize='1')
+        dot.attr(splines='line')  # Líneas rectas
+        dot.attr(bgcolor='#f9f9f9')
         
-        # Agregar nodos
-        for codigo in materias_no_cursadas:
-            G.add_node(codigo)
-        
-        # Agregar aristas solo entre materias no cursadas
         materias_disponibles = []
         materias_bloqueadas = []
+        tooltips = {}
         
+        # Clasificar materias
         for codigo, info in materias_no_cursadas.items():
-            prereqs_pendientes = []
+            prereqs_pendientes = [p for p in info['prerrequisitos'] if p in materias_no_cursadas]
+            tooltips[codigo] = info['nombre']
             
-            # Solo considerar prerrequisitos que están en materias no cursadas
-            for prereq in info['prerrequisitos']:
-                if prereq in materias_no_cursadas:
-                    prereqs_pendientes.append(prereq)
-                    G.add_edge(prereq, codigo)
-            
-            # Si no tiene prerrequisitos pendientes, está disponible
             if not prereqs_pendientes:
                 materias_disponibles.append(codigo)
+                dot.node(codigo, codigo, fillcolor='lightgreen', color='darkgreen', penwidth='2')
             else:
                 materias_bloqueadas.append(codigo)
+                dot.node(codigo, codigo, fillcolor='lightcoral', color='darkred', penwidth='2')
         
-        print(f"Materias disponibles: {len(materias_disponibles)}")
-        print(f"Materias bloqueadas: {len(materias_bloqueadas)}")
+        # Agregar aristas
+        for codigo, info in materias_no_cursadas.items():
+            for prereq in info['prerrequisitos']:
+                if prereq in materias_no_cursadas:
+                    dot.edge(prereq, codigo)
         
-        # Crear layout jerárquico CORRECTO
-        pos = crear_layout_jerarquico_correcto(G, materias_disponibles)
+        print(f"✅ Materias disponibles: {len(materias_disponibles)}")
+        print(f"🔒 Materias bloqueadas: {len(materias_bloqueadas)}")
         
-        # Configurar figura más grande
-        plt.figure(figsize=(16, 12))
+        # Generar SVG y HTML
+        output_name = 'materias_no_cursadas'
+        dot.render(output_name, format='svg', cleanup=True)
         
-        # Crear etiquetas solo con códigos
-        labels = {}
-        for codigo in G.nodes:
-            labels[codigo] = codigo
+        with open(f'{output_name}.svg', 'r', encoding='utf-8') as f:
+            svg_content = f.read()
         
-        # Dibujar nodos con diferentes colores
-        if materias_disponibles:
-            nx.draw_networkx_nodes(G, pos, nodelist=materias_disponibles, 
-                                  node_color='lightgreen', node_size=2000, 
-                                  alpha=0.8, edgecolors='darkgreen', linewidths=2)
+        html_file = f'{output_name}.html'
+        generar_html_con_tooltips(svg_content, str(tooltips), html_file)
         
-        if materias_bloqueadas:
-            nx.draw_networkx_nodes(G, pos, nodelist=materias_bloqueadas, 
-                                  node_color='lightcoral', node_size=2000, 
-                                  alpha=0.8, edgecolors='darkred', linewidths=2)
+        webbrowser.open(f'file://{os.path.abspath(html_file)}')
+        print(f"✅ Gráfico generado: {html_file}")
         
-        # Dibujar aristas
-        if G.edges:
-            nx.draw_networkx_edges(G, pos, edge_color='gray', arrows=True, 
-                                  arrowsize=20, arrowstyle='->', width=2, alpha=0.7)
-        
-        # Dibujar etiquetas
-        nx.draw_networkx_labels(G, pos, labels, font_size=8, font_weight='bold')
-        
-        plt.title("Árbol de Materias No Cursadas\n(Verde: Listas para cursar | Rojo: Requieren prerrequisitos)", 
-                 fontsize=16, fontweight='bold', pad=20)
-        
-        # Leyenda mejorada
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', markerfacecolor='lightgreen', 
-                   markeredgecolor='darkgreen', markersize=15, 
-                   label=f'Disponibles ({len(materias_disponibles)})'),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor='lightcoral', 
-                   markeredgecolor='darkred', markersize=15, 
-                   label=f'Bloqueadas ({len(materias_bloqueadas)})')
-        ]
-        plt.legend(handles=legend_elements, loc='upper right', fontsize=12)
-        
-        plt.axis('off')
-        plt.tight_layout()
-        plt.show()
-        
-        # Mostrar análisis detallado
         mostrar_analisis_detallado(materias_disponibles, materias_bloqueadas, materias_no_cursadas)
         
     except FileNotFoundError:
@@ -335,75 +472,6 @@ def graficar_materias_no_cursadas(ruta_no_cursadas):
         print(f"❌ Error al crear el gráfico: {e}")
         import traceback
         traceback.print_exc()
-
-def crear_layout_jerarquico_correcto(G, materias_disponibles):
-    """Crea un layout jerárquico donde las materias prereq están arriba de sus dependientes"""
-    
-    # Calcular niveles usando ordenamiento topológico
-    niveles = {}
-    
-    # Nivel 0: materias sin prerrequisitos (disponibles)
-    for materia in materias_disponibles:
-        niveles[materia] = 0
-    
-    # Usar BFS para asignar niveles
-    cola = deque([(materia, 0) for materia in materias_disponibles])
-    
-    while cola:
-        nodo_actual, nivel_actual = cola.popleft()
-        
-        # Para cada materia que depende de la actual
-        for sucesor in G.successors(nodo_actual):
-            # El nivel del sucesor debe ser al menos nivel_actual + 1
-            nivel_sucesor = nivel_actual + 1
-            
-            # Si ya tiene un nivel asignado, tomar el máximo
-            if sucesor in niveles:
-                nivel_sucesor = max(niveles[sucesor], nivel_sucesor)
-            
-            # Solo actualizar si es un nivel mayor
-            if sucesor not in niveles or nivel_sucesor > niveles[sucesor]:
-                niveles[sucesor] = nivel_sucesor
-                cola.append((sucesor, nivel_sucesor))
-    
-    # Asegurar que todos los nodos tengan nivel
-    for nodo in G.nodes:
-        if nodo not in niveles:
-            # Calcular nivel basado en prerrequisitos
-            predecesores = list(G.predecessors(nodo))
-            if predecesores:
-                nivel_max = max([niveles.get(pred, 0) for pred in predecesores])
-                niveles[nodo] = nivel_max + 1
-            else:
-                niveles[nodo] = 0
-    
-    # Organizar nodos por nivel
-    nodos_por_nivel = defaultdict(list)
-    for nodo, nivel in niveles.items():
-        nodos_por_nivel[nivel].append(nodo)
-    
-    # Asignar posiciones
-    pos = {}
-    espaciado_vertical = 9
-    espaciado_horizontal = 8
-    
-    for nivel in sorted(nodos_por_nivel.keys()):
-        nodos = nodos_por_nivel[nivel]
-        y = -nivel * espaciado_vertical  # Niveles más altos van arriba
-        
-        # Distribuir horizontalmente
-        if len(nodos) == 1:
-            pos[nodos[0]] = (0, y)
-        else:
-            ancho_total = (len(nodos) - 1) * espaciado_horizontal
-            x_inicio = -ancho_total / 2
-            
-            for i, nodo in enumerate(nodos):
-                x = x_inicio + i * espaciado_horizontal
-                pos[nodo] = (x, y)
-    
-    return pos
-
 
 def mostrar_analisis_detallado(disponibles, bloqueadas, materias_info):
     """Muestra análisis detallado de las materias"""
@@ -429,24 +497,12 @@ def mostrar_analisis_detallado(disponibles, bloqueadas, materias_info):
         for i, codigo in enumerate(sorted(bloqueadas)[:10], 1):
             info = materias_info[codigo]
             nombre = info['nombre']
-            
-            # Mostrar prerrequisitos pendientes
-            prereqs_pendientes = []
-            for prereq in info['prerrequisitos']:
-                if prereq in materias_info:
-                    prereqs_pendientes.append(prereq)
+            prereqs_pendientes = [p for p in info['prerrequisitos'] if p in materias_info]
             
             print(f"{i:2d}. {codigo}: {nombre}")
             if prereqs_pendientes:
                 print(f"    📋 Requiere: {', '.join(prereqs_pendientes)}")
-    
-    print(f"\n💡 RECOMENDACIONES:")
-    print("   • Enfócate en las materias VERDES del gráfico")
-    print("   • Cada materia verde completada desbloqueará otras rojas")
-    print("   • Planifica tu carga académica considerando la dificultad")
 
-
-# Función mejorada para mostrar materias no cursadas
 def mostrar_no_cursadas_con_grafico(ruta_no_cursadas):
     """Muestra las materias no cursadas y ofrece gráfico mejorado"""
     try:
@@ -477,97 +533,17 @@ def mostrar_no_cursadas_con_grafico(ruta_no_cursadas):
             return
         
         print(f"📊 Total: {contador} materias pendientes")
-        
-        # Ofrecer visualización gráfica
         print("\n" + "="*70)
         respuesta = input("¿Deseas ver el árbol jerárquico de dependencias? (s/n): ").strip().lower()
         
         if respuesta == 's':
-            print("🔄 Generando gráfico jerárquico...")
-            graficar_materias_no_cursadas(ruta_no_cursadas)
+            print("🔄 Generando gráfico interactivo con Graphviz...")
+            graficar_materias_no_cursadas_graphviz(ruta_no_cursadas)
         
     except FileNotFoundError:
         print("❌ Archivo de materias no cursadas no encontrado.")
-        print("📁 Verifica la ruta del archivo.")
     except Exception as e:
         print(f"❌ Error al procesar el archivo: {e}")
-
-
-# Función auxiliar para verificar prerrequisitos
-def verificar_prerrequisitos_pendientes(materia, materias_no_cursadas):
-    """Verifica qué prerrequisitos de una materia aún no se han cursado"""
-    nodo = grafo_materias.obtener_nodo(materia)
-    if not nodo:
-        return []
-    
-    prerrequisitos_pendientes = []
-    for padre in nodo.padres:
-        if padre in materias_no_cursadas:
-            prerrequisitos_pendientes.append(padre)
-    
-    return prerrequisitos_pendientes
-
-# Función modificada para mostrar materias no cursadas
-def mostrar_no_cursadas_con_grafico(ruta_no_cursadas):
-    """Muestra las materias no cursadas y ofrece opción de graficar"""
-    try:
-        materias_mostradas = []
-        with open(ruta_no_cursadas, 'r', encoding='utf-8') as f:
-            print("\nMaterias que no has cursado:")
-            print("-" * 50)
-            contador = 0
-            for linea in f:
-                linea = linea.strip()
-                if linea:
-                    partes = linea.split(':')
-                    if len(partes) >= 2:
-                        codigo = partes[0].strip()
-                        nombre = partes[1].strip()
-                        print(f"{contador+1:2d}. {codigo}: {nombre}")
-                        materias_mostradas.append(codigo)
-                        contador += 1
-                    else:
-                        print(f"{contador+1:2d}. {linea}")
-                        contador += 1
-            
-            if contador == 0:
-                print("El archivo está vacío o no contiene materias válidas.")
-                return
-            else:
-                print(f"\nTotal: {contador} materias no cursadas")
-                
-                # Preguntar si quiere ver el gráfico
-                print("\n" + "="*50)
-                ver_grafico = input("¿Deseas ver el árbol gráfico de las materias? (s/n): ").strip().lower()
-                if ver_grafico == 's':
-                    print("Generando gráfico... (puede tomar unos segundos)")
-                    graficar_materias_no_cursadas(ruta_no_cursadas)
-                
-    except FileNotFoundError:
-        print("❌ Archivo de materias no cursadas no encontrado.")
-        print("Verifica que el archivo existe en la ruta especificada.")
-    except Exception as e:
-        print(f"❌ Error al leer el archivo: {e}")
-
-
-# Función corregida para obtener prerrequisitos directos e indirectos
-def obtener_prerrequisitos_indirectos(materia):
-    nodo = grafo_materias.obtener_nodo(materia)
-    if not nodo:
-        return set()
-
-    prerrequisitos = set()
-
-    def explorar_prerrequisitos(nodo_actual):
-        for padre in nodo_actual.padres:
-            if padre not in prerrequisitos:
-                prerrequisitos.add(padre)
-                padre_nodo = grafo_materias.obtener_nodo(padre)
-                if padre_nodo:
-                    explorar_prerrequisitos(padre_nodo)
-
-    explorar_prerrequisitos(nodo)
-    return prerrequisitos
 
 def mostrar_dependientes_directos(codigo):
     nodo = grafo_materias.obtener_nodo(codigo)
@@ -581,9 +557,8 @@ def mostrar_dependientes_directos(codigo):
     else:
         print("Materia no encontrada.")
 
-
 def mostrar_dependientes_jerarquico(codigo):
-    """Muestra dependientes con jerarquía y sin repeticiones"""
+    """Muestra dependientes con jerarquía"""
     nodo = grafo_materias.obtener_nodo(codigo)
     if not nodo:
         print("Materia no encontrada.")
@@ -598,7 +573,6 @@ def mostrar_dependientes_jerarquico(codigo):
         print("Esta materia no tiene dependientes.")
         return
     
-    # Organizar por niveles
     niveles = {codigo: 0}
     cola = deque([(codigo, 0)])
     
@@ -612,10 +586,9 @@ def mostrar_dependientes_jerarquico(codigo):
                 niveles[hijo] = nivel_hijo
                 cola.append((hijo, nivel_hijo))
     
-    # Mostrar por niveles
     nodos_por_nivel = defaultdict(list)
     for nodo, nivel in niveles.items():
-        if nodo != codigo:  # Excluir el nodo raíz
+        if nodo != codigo:
             nodos_por_nivel[nivel].append(nodo)
     
     for nivel in sorted(nodos_por_nivel.keys()):
@@ -629,16 +602,15 @@ def mostrar_dependientes_jerarquico(codigo):
             print(f"{indentacion}• {nodo}: {materias.get(nodo, 'Materia no encontrada')}")
         print()
     
-    # Mostrar resumen
     total_dependientes = sum(len(nodos) for nodos in nodos_por_nivel.values())
     print(f"📊 Total de dependientes: {total_dependientes}")
-
-
 
 # Menú principal
 def menu():
     while True:
-        print("\nMenú:")
+        print("\n" + "="*70)
+        print("📚 SISTEMA DE GESTIÓN DE PENSUM")
+        print("="*70)
         print("1. Ver pensum completo")
         print("2. Consultar prerrequisitos de materia por código")
         print("3. Consultar todos los prerrequisitos directos e indirectos")
@@ -647,6 +619,7 @@ def menu():
         print("6. Asignaturas sin cursar")
         print("7. Limpiar consola")
         print("8. Salir")
+        print("="*70)
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
@@ -663,41 +636,39 @@ def menu():
             prerrequisitos = obtener_prerrequisitos_indirectos(codigo)
             if prerrequisitos:
                 print(f"Todos los prerrequisitos de {codigo}: {', '.join(prerrequisitos)}")
-                ver_grafico = input("¿Deseas ver un gráfico de los prerrequisitos? (s/n): ").strip().lower()
+                ver_grafico = input("¿Deseas ver un gráfico interactivo? (s/n): ").strip().lower()
                 if ver_grafico == 's':
-                    graficar_prerrequisitos(codigo)
+                    graficar_prerrequisitos_graphviz(codigo)
             else:
                 print("No tiene prerrequisitos indirectos.")
         elif opcion == "4":
             codigo = input("Ingrese el código de la materia: ").strip().upper()
             mostrar_dependientes_directos(codigo)
-        
         elif opcion == "5":
             codigo = input("Ingrese el código de la materia: ").strip().upper()
             nodo = grafo_materias.obtener_nodo(codigo)
             if nodo:
                 mostrar_dependientes_jerarquico(codigo)
-                ver_grafico = input("¿Deseamostrar_dependientes_jerarquicos ver un gráfico de los dependientes? (s/n): ").strip().lower()
+                ver_grafico = input("¿Deseas ver un gráfico interactivo? (s/n): ").strip().lower()
                 if ver_grafico == 's':
-                    graficar_dependientes(codigo)
+                    graficar_dependientes_graphviz(codigo)
             else:
                 print("Materia no encontrada.")
-
-                #
         elif opcion == "6":
-            ruta_no_cursadas = r"sin_cursar.txt" #asignaturas sin cursar
-            #ruta_no_cursadas = r"C:\Users\Dell\OneDrive\Escritorio\Python\pensum.txt" #pensum completo
-
+            ruta_no_cursadas = r"sin_cursar.txt"
             mostrar_no_cursadas_con_grafico(ruta_no_cursadas)
         elif opcion == "7":
             limpiar_consola()
         elif opcion == "8":
-            print("Saliendo del programa.")
+            print("👋 Saliendo del programa. ¡Hasta pronto!")
             break
         else:
-            print("Opción inválida.")
+            print("❌ Opción inválida.")
 
 # Cargar el archivo y ejecutar el menú
-ruta_archivo = r"pensum.txt"  
-leer_archivo(ruta_archivo)
-menu()
+if __name__ == "__main__":
+    ruta_archivo = r"pensum.txt"
+    print("🔄 Cargando pensum...")
+    leer_archivo(ruta_archivo)
+    print("✅ Pensum cargado correctamente")
+    menu()
