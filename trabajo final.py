@@ -1,4 +1,5 @@
 import os
+import shutil
 import html
 import json
 import graphviz
@@ -48,6 +49,8 @@ CARPETA_GRAFICOS = 'graficos'
 
 # Plantilla HTML de los gráficos, junto a este script
 RUTA_PLANTILLA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plantilla.html')
+# Hoja de estilos de la plantilla; se copia junto a cada HTML generado
+RUTA_ESTILOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'estilos.css')
 
 
 def ruta_grafico(nombre):
@@ -179,6 +182,7 @@ def generar_html_con_tooltips(svg_content, nombres, output_file, titulo='Pensum'
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(contenido)
+    shutil.copy(RUTA_ESTILOS, os.path.join(os.path.dirname(output_file), 'estilos.css'))
 
 
 def graficar_prerrequisitos_graphviz(materia):
