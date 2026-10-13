@@ -37,7 +37,8 @@
 <div class="etiqueta" id="etiqueta"></div>
 <script>
 const nombres = __NOMBRES__;
-// 'pendientes' (trimestre 0 = actual) o 'pensum' (trimestres desde el 1)
+// 'pendientes' (trimestre 0 = actual), 'pensum' (trimestres desde el 1)
+// o 'dependientes' (la materia elegida arriba y los trimestres después de aprobarla)
 const MODO = '__MODO__';
 const hoja = document.getElementById('hoja');
 const svg = hoja.querySelector('svg');
@@ -278,6 +279,7 @@ hoja.addEventListener('click', e => {
 // El nivel 1 es el trimestre actual (trimestre 0), el nivel 2 es el trimestre 1, etc.
 function nombreTrimestre(n) {
     if (MODO === 'pensum') return 'Trimestre ' + n;
+    if (MODO === 'dependientes') return n === 1 ? 'Materia elegida' : 'Trimestre ' + (n - 1);
     return n === 1 ? 'Trimestre 0 (actual)' : 'Trimestre ' + (n - 1);
 }
 function plural(k, uno, varios) { return k + ' ' + (k === 1 ? uno : varios); }
@@ -326,7 +328,7 @@ if (numerosNivel.length) {
     numerosNivel.forEach(n => {
         // En el trimestre actual se distinguen las que no abren nada de las que sí abren
         let subgrupos = [{ nodos: filas[n], texto: plural(filas[n].length, 'materia', 'materias') }];
-        if (n === 1) {
+        if (n === 1 && MODO !== 'dependientes') {
             const noAbren = filas[n].filter(g => g.classList.contains('no-abre'));
             const abren = filas[n].filter(g => !g.classList.contains('no-abre'));
             subgrupos = [

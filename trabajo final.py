@@ -3,7 +3,7 @@ import shutil
 import html
 import json
 import graphviz
-from collections import defaultdict, deque
+from collections import defaultdict
 import webbrowser
 
 class Nodo:
@@ -141,6 +141,24 @@ def obtener_dependientes_indirectos(materia):
     explorar_dependientes(nodo)
     return dependientes
 
+def calcular_niveles_dependientes(codigo, dependientes):
+    """Nivel de cada dependiente = largo del camino más largo desde la materia (que tiene nivel 0).
+    Los prerrequisitos que ya están en el camino actual se ignoran para no quedar en bucle
+    si el pensum tiene un ciclo"""
+    niveles = {codigo: 0}
+
+    def calcular_nivel(materia, en_camino=()):
+        if materia not in niveles:
+            padres = [p for p in grafo_materias.obtener_nodo(materia).padres
+                      if (p == codigo or p in dependientes) and p not in en_camino]
+            niveles[materia] = 1 + max((calcular_nivel(p, en_camino + (materia,)) for p in padres),
+                                       default=0)
+        return niveles[materia]
+
+    for dependiente in dependientes:
+        calcular_nivel(dependiente)
+    return niveles
+
 SIGLAS = {'I', 'II', 'III', 'IV', 'V', 'VI', 'TI', 'TIC', 'SQL', 'IA', 'UX', 'UI', 'ERP'}
 
 
@@ -269,29 +287,28 @@ def graficar_dependientes_graphviz(materia):
              fontname='Arial', fontsize='14', margin='0.18,0.08')
     dot.attr('edge', color='#555555', penwidth='1.4', arrowsize='0.7')
     dot.attr(splines='line')  # Líneas rectas
+    dot.attr(nodesep='0.25', ranksep='0.7')
     dot.attr(bgcolor='transparent')
-    
-    visitados = set()
+
+    # Cada nivel va en su propia franja: la materia elegida arriba (nivel 1) y debajo
+    # cada dependiente en el primer trimestre en que se puede dar después de aprobarla
+    niveles = calcular_niveles_dependientes(materia, dependientes)
+    por_nivel = defaultdict(list)
+    for codigo, nivel in niveles.items():
+        por_nivel[nivel + 1].append(codigo)
+
     tooltips = {}
+    for nivel in sorted(por_nivel):
+        with dot.subgraph(name=f'fila_{nivel}') as fila:
+            fila.attr(rank='same')
+            for codigo in por_nivel[nivel]:
+                tooltips[codigo] = materias.get(codigo, 'Sin nombre')
+                clase = 'objetivo' if codigo == materia else 'dependiente'
+                fila.node(codigo, codigo, **{'class': f'{clase} nivel-{nivel}'})
 
-    def agregar_nodos_recursivo(nodo_actual):
-        if nodo_actual.valor in visitados:
-            return
-        visitados.add(nodo_actual.valor)
-        
-        dot.node(nodo_actual.valor, nodo_actual.valor)
-        tooltips[nodo_actual.valor] = materias.get(nodo_actual.valor, 'Sin nombre')
-        
-        for hijo in nodo_actual.hijos:
-            dot.edge(nodo_actual.valor, hijo)
-            hijo_nodo = grafo_materias.obtener_nodo(hijo)
-            if hijo_nodo:
-                agregar_nodos_recursivo(hijo_nodo)
-
-    agregar_nodos_recursivo(nodo)
-    
-    # Resaltar la materia objetivo
-    dot.node(materia, materia, **{'class': 'objetivo'})
+    for codigo in niveles:
+        for hijo in grafo_materias.obtener_nodo(codigo).hijos:
+            dot.edge(codigo, hijo)
     
     # Generar SVG y HTML
     output_name = ruta_grafico(f'dependientes_{materia}')
@@ -304,8 +321,12 @@ def graficar_dependientes_graphviz(materia):
     generar_html_con_tooltips(
         svg_content, tooltips, html_file,
         titulo=f'Lo que abre {materia}',
-        resumen=f'Materias que se desbloquean, directa o indirectamente, al aprobar {materia} ({nombre_legible(materias.get(materia, "sin nombre"))}).',
+        resumen=f'Materias que se desbloquean, directa o indirectamente, al aprobar {materia} '
+                f'({nombre_legible(materias.get(materia, "sin nombre"))}). Cada franja es un trimestre '
+                f'contando desde que la apruebas: son {len(dependientes)} materias repartidas en '
+                f'{max(niveles.values())} trimestres como mínimo.',
         leyenda=[('objetivo', materia), ('ruta', 'Prerrequisito de la materia que elijas')],
+        modo='dependientes',
     )
     
     webbrowser.open(f'file://{os.path.abspath(html_file)}')
@@ -559,18 +580,7 @@ def mostrar_dependientes_jerarquico(codigo):
         print("Esta materia no tiene dependientes.")
         return
     
-    niveles = {codigo: 0}
-    cola = deque([(codigo, 0)])
-    
-    while cola:
-        nodo_actual, nivel_actual = cola.popleft()
-        nodo_obj = grafo_materias.obtener_nodo(nodo_actual)
-        
-        for hijo in nodo_obj.hijos:
-            nivel_hijo = nivel_actual + 1
-            if hijo not in niveles or nivel_hijo > niveles[hijo]:
-                niveles[hijo] = nivel_hijo
-                cola.append((hijo, nivel_hijo))
+    niveles = calcular_niveles_dependientes(codigo, dependientes)
     
     nodos_por_nivel = defaultdict(list)
     for nodo, nivel in niveles.items():
