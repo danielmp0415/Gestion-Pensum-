@@ -4,6 +4,18 @@ Programa de consola para consultar el pensum de Ingeniería de Sistemas (SIS-202
 materias que se desbloquean al aprobar otra y materias pendientes. Genera gráficos interactivos
 en HTML, organizados por trimestres, que se abren en el navegador.
 
+## Capturas
+
+Pensum completo por trimestres. Arriba están las materias sin prerrequisitos y en cada franja lo que
+se desbloquea al aprobar las anteriores:
+
+![Gráfico del pensum completo organizado por trimestres](docs/img/pensum-completo.png)
+
+Al hacer clic en una materia se resalta en rojo su cadena de prerrequisitos. El panel lateral muestra
+su nombre, desde qué trimestre se puede inscribir, qué hay que aprobar antes y qué materias abre:
+
+![Detalle de ICC202 con su ruta de prerrequisitos resaltada](docs/img/pensum-completo-2.png)
+
 ## Requisitos
 
 - Python 3.10 o superior
