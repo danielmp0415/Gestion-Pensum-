@@ -44,13 +44,18 @@ materias = {}
 # Instancia del grafo
 grafo_materias = Grafo()
 
+# Carpeta del script: los archivos se buscan aquí aunque se ejecute desde otro directorio
+CARPETA_BASE = os.path.dirname(os.path.abspath(__file__))
+RUTA_PENSUM = os.path.join(CARPETA_BASE, 'pensum.txt')
+RUTA_SIN_CURSAR = os.path.join(CARPETA_BASE, 'sin_cursar.txt')
+
 # Carpeta donde se guardan los gráficos generados (.svg y .html)
-CARPETA_GRAFICOS = 'graficos'
+CARPETA_GRAFICOS = os.path.join(CARPETA_BASE, 'graficos')
 
 # Plantilla HTML de los gráficos, junto a este script
-RUTA_PLANTILLA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plantilla.html')
+RUTA_PLANTILLA = os.path.join(CARPETA_BASE, 'plantilla.html')
 # Hoja de estilos de la plantilla; se copia junto a cada HTML generado
-RUTA_ESTILOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'estilos.css')
+RUTA_ESTILOS = os.path.join(CARPETA_BASE, 'estilos.css')
 
 
 def ruta_grafico(nombre):
@@ -70,7 +75,10 @@ def leer_archivo(archivo):
 
                 # Guardar el nombre de la materia
                 materias[codigo_materia] = nombre_materia
-                
+                # Toda materia es un nodo, aunque no tenga prerrequisitos ni dependientes
+                if codigo_materia not in grafo_materias.nodos:
+                    grafo_materias.agregar_nodo(codigo_materia)
+
                 # Agregar nodos y aristas al grafo
                 for pr in prerrequisitos_materia:
                     pr = pr.strip()
@@ -623,7 +631,7 @@ def menu():
             ver_grafico = input("¿Deseas ver el gráfico interactivo del pensum completo? (s/n): ").strip().lower()
             if ver_grafico == 's':
                 print("🔄 Generando gráfico interactivo con Graphviz...")
-                graficar_materias_no_cursadas_graphviz(r"pensum.txt", pensum_completo=True)
+                graficar_materias_no_cursadas_graphviz(RUTA_PENSUM, pensum_completo=True)
         elif opcion == "2":
             codigo = input("Ingrese el código de la materia: ").strip().upper()
             if codigo in materias:
@@ -655,7 +663,7 @@ def menu():
             else:
                 print("Materia no encontrada.")
         elif opcion == "6":
-            ruta_no_cursadas = r"sin_cursar.txt"
+            ruta_no_cursadas = RUTA_SIN_CURSAR
             mostrar_no_cursadas_con_grafico(ruta_no_cursadas)
         elif opcion == "7":
             limpiar_consola()
@@ -667,8 +675,9 @@ def menu():
 
 # Cargar el archivo y ejecutar el menú
 if __name__ == "__main__":
-    ruta_archivo = r"pensum.txt"
+    ruta_archivo = RUTA_PENSUM
     print("🔄 Cargando pensum...")
     leer_archivo(ruta_archivo)
-    print("✅ Pensum cargado correctamente")
+    if materias:
+        print("✅ Pensum cargado correctamente")
     menu()
