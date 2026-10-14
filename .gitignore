@@ -1,3 +1,4 @@
 Pensum SIS-2020.pdf
 graficos/
-__pycache__.DS_Store
+__pycache__
+.DS_Store
