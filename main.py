@@ -2,6 +2,7 @@ import os
 import shutil
 import html
 import json
+import time
 import graphviz
 from collections import defaultdict
 import webbrowser
@@ -62,6 +63,25 @@ def ruta_grafico(nombre):
     """Devuelve la ruta del gráfico dentro de CARPETA_GRAFICOS, creando la carpeta si no existe"""
     os.makedirs(CARPETA_GRAFICOS, exist_ok=True)
     return os.path.join(CARPETA_GRAFICOS, nombre)
+
+
+# Antigüedad máxima de un gráfico antes de borrarlo al iniciar el programa
+HORAS_MAX_GRAFICOS = 24
+
+
+def limpiar_graficos_antiguos():
+    """Elimina de CARPETA_GRAFICOS los archivos con más de HORAS_MAX_GRAFICOS horas"""
+    if not os.path.isdir(CARPETA_GRAFICOS):
+        return
+    limite = time.time() - HORAS_MAX_GRAFICOS * 3600
+    eliminados = 0
+    for nombre in os.listdir(CARPETA_GRAFICOS):
+        ruta = os.path.join(CARPETA_GRAFICOS, nombre)
+        if os.path.isfile(ruta) and os.path.getmtime(ruta) < limite:
+            os.remove(ruta)
+            eliminados += 1
+    if eliminados:
+        print(f"🧹 Se eliminaron {eliminados} gráficos con más de {HORAS_MAX_GRAFICOS} horas")
 
 # Función para leer el archivo y construir el grafo
 def leer_archivo(archivo):
@@ -256,13 +276,9 @@ def graficar_prerrequisitos_graphviz(materia):
     # Resaltar la materia objetivo
     dot.node(materia, materia, **{'class': 'objetivo'})
     
-    # Generar SVG
+    # Generar SVG en memoria (solo se guarda el HTML)
     output_name = ruta_grafico(f'prerrequisitos_{materia}')
-    dot.render(output_name, format='svg', cleanup=True)
-    
-    # Leer SVG y crear HTML con tooltips
-    with open(f'{output_name}.svg', 'r', encoding='utf-8') as f:
-        svg_content = f.read()
+    svg_content = dot.pipe(format='svg').decode('utf-8')
     
     html_file = f'{output_name}.html'
     generar_html_con_tooltips(
@@ -320,10 +336,7 @@ def graficar_dependientes_graphviz(materia):
     
     # Generar SVG y HTML
     output_name = ruta_grafico(f'dependientes_{materia}')
-    dot.render(output_name, format='svg', cleanup=True)
-    
-    with open(f'{output_name}.svg', 'r', encoding='utf-8') as f:
-        svg_content = f.read()
+    svg_content = dot.pipe(format='svg').decode('utf-8')
     
     html_file = f'{output_name}.html'
     generar_html_con_tooltips(
@@ -443,10 +456,7 @@ def graficar_materias_no_cursadas_graphviz(ruta_no_cursadas, pensum_completo=Fal
         
         # Generar SVG y HTML
         output_name = ruta_grafico('pensum_completo' if pensum_completo else 'materias_no_cursadas')
-        dot.render(output_name, format='svg', cleanup=True)
-        
-        with open(f'{output_name}.svg', 'r', encoding='utf-8') as f:
-            svg_content = f.read()
+        svg_content = dot.pipe(format='svg').decode('utf-8')
         
         html_file = f'{output_name}.html'
         if pensum_completo:
@@ -675,6 +685,7 @@ def menu():
 
 # Cargar el archivo y ejecutar el menú
 if __name__ == "__main__":
+    limpiar_graficos_antiguos()
     ruta_archivo = RUTA_PENSUM
     print("🔄 Cargando pensum...")
     leer_archivo(ruta_archivo)
